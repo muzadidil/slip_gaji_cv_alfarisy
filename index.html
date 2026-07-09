@@ -679,12 +679,17 @@ $("inpTahun").addEventListener("input", renderPreview);
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 let dataStarted = false;
 
+let loginInProgress = false;
 function doLogin(){
+  if(loginInProgress) return;
+  loginInProgress = true;
   $("gateError").style.display="none";
   auth.signInWithPopup(googleProvider).catch(e=>{
-    $("gateError").textContent="Gagal masuk: "+e.message;
-    $("gateError").style.display="block";
-  });
+    if(e.code !== "auth/cancelled-popup-request"){
+      $("gateError").textContent="Gagal masuk: "+e.message;
+      $("gateError").style.display="block";
+    }
+  }).finally(()=>{ loginInProgress = false; });
 }
 $("btnLogin").addEventListener("click", doLogin);
 $("btnLoginGate").addEventListener("click", doLogin);
