@@ -91,7 +91,8 @@ main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
 /* ===== Preview slip (kertas) ===== */
 .paper-wrap{overflow-x:auto}
 .paper{font-family:var(--font-doc);background:#fff;border:1px solid var(--line);box-shadow:0 2px 6px rgba(28,39,51,.10),0 16px 40px rgba(28,39,51,.12);padding:34px 38px;min-width:560px;max-width:680px;margin:0 auto;color:#111}
-.paper .kop{text-align:center}
+.paper .kop{text-align:center;position:relative}
+.paper .kop .logo{position:absolute;left:0;top:0;max-height:56px;max-width:110px;object-fit:contain}
 .paper .kop .nama{font-size:19px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .paper .kop .alamat{font-size:11.5px;color:#333;margin-top:2px}
 .paper .rule{border-top:2.5px solid #111;margin-top:8px}
@@ -326,6 +327,12 @@ body.pre-auth nav, body.pre-auth main{filter:blur(8px);pointer-events:none;user-
   <div class="modal">
     <h3 id="modalItemTitle">Tambah Item</h3>
     <div class="field"><label>Nama Item</label><input id="itemNama" placeholder="Contoh: Tunjangan Transport"></div>
+    <div class="field"><label>Nominal Default (opsional)</label><input id="itemNominal" class="num rp" inputmode="numeric" placeholder="Kosongkan jika tidak tetap"></div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-weight:500">
+        <input type="checkbox" id="itemFix" style="width:auto"> Nominal fix (tidak bisa diubah saat dipilih)
+      </label>
+    </div>
     <div class="actions">
       <button class="btn btn-ghost btn-sm" id="itemBatal">Batal</button>
       <button class="btn btn-primary btn-sm" style="width:auto" id="itemSimpan">Simpan</button>
@@ -432,21 +439,24 @@ document.querySelectorAll("nav button").forEach(b=>{
 /* ================= FORM: BARIS DINAMIS ================= */
 function addRow(tbody, label="", jumlah="", itemList){
   const tr=document.createElement("tr");
-  const opsi = (itemList||[]).map(n=>`<option value="${n}">${n}</option>`).join("");
   const hasList = !!(itemList && itemList.length);
-  const isCustom = !hasList || !itemList.includes(label);
+  const matched = hasList ? itemList.find(it=>it.nama===label) : null;
+  const isCustom = !hasList || !matched;
+  const opsi = hasList ? itemList.map(it=>`<option value="${it.nama}">${it.nama}</option>`).join("") : "";
+  const jmlReadonly = matched && matched.fix;
   tr.innerHTML = hasList
     ? `<td>
          <select class="lblSelect">${opsi}<option value="__custom__">Custom...</option></select>
          <input class="lbl" placeholder="Keterangan" value="${label}" style="${isCustom?'':'display:none'};margin-top:4px">
        </td>
-       <td><input class="num rp jml" inputmode="numeric" placeholder="0" value="${jumlah?Number(jumlah).toLocaleString("id-ID"):""}"></td>
+       <td><input class="num rp jml" inputmode="numeric" placeholder="0" value="${jumlah?Number(jumlah).toLocaleString("id-ID"):""}" ${jmlReadonly?'readonly style="background:#F5F7F9"':''}></td>
        <td><button class="del" title="Hapus baris">&times;</button></td>`
     : `<td><input class="lbl" placeholder="Keterangan" value="${label}"></td>
        <td><input class="num rp jml" inputmode="numeric" placeholder="0" value="${jumlah?Number(jumlah).toLocaleString("id-ID"):""}"></td>
        <td><button class="del" title="Hapus baris">&times;</button></td>`;
   tr.querySelector(".del").addEventListener("click",()=>{ tr.remove(); hitungTotal(); });
   const lblInput = tr.querySelector(".lbl");
+  const jmlInput = tr.querySelector(".jml");
   lblInput.addEventListener("input", renderPreview);
   const selEl = tr.querySelector(".lblSelect");
   if(selEl){
@@ -455,15 +465,20 @@ function addRow(tbody, label="", jumlah="", itemList){
       if(selEl.value==="__custom__"){
         lblInput.style.display="";
         lblInput.value="";
+        jmlInput.readOnly=false; jmlInput.style.background="";
         lblInput.focus();
       } else {
+        const it = itemList.find(x=>x.nama===selEl.value);
         lblInput.style.display="none";
         lblInput.value=selEl.value;
+        if(it && it.nominal){ jmlInput.value=it.nominal.toLocaleString("id-ID"); }
+        if(it && it.fix){ jmlInput.readOnly=true; jmlInput.style.background="#F5F7F9"; }
+        else { jmlInput.readOnly=false; jmlInput.style.background=""; }
       }
       hitungTotal();
     });
   }
-  bindRpInput(tr.querySelector(".jml"));
+  bindRpInput(jmlInput);
   tbody.appendChild(tr);
 }
 $("btnAddTunjangan").addEventListener("click",()=>addRow($("tbodyPendapatan"),"","",itemPendapatan));
@@ -519,7 +534,7 @@ function renderPreview(){
   }
   $("preview").innerHTML=`
     <div class="kop">
-      ${settings.logo?`<img src="${settings.logo}" style="max-height:50px;max-width:160px;object-fit:contain;margin-bottom:6px">`:""}
+      ${settings.logo?`<img class="logo" src="${settings.logo}">`:""}
       <div class="nama">${settings.nama||"NAMA PERUSAHAAN"}</div>
       <div class="alamat">${settings.alamat||"Alamat perusahaan"}</div>
     </div>
@@ -555,11 +570,11 @@ function buatPDF(d, no){
   const W = 210, M = 20, CW = W - M*2;
   let y = 20;
 
-  // Kop
+  // Kop (logo di kiri, sejajar nama & alamat perusahaan)
   if(settings.logo){
     try{
       const fmt = settings.logo.includes("image/png") ? "PNG" : "JPEG";
-      doc.addImage(settings.logo, fmt, M, y-6, 18, 18);
+      doc.addImage(settings.logo, fmt, M, y-5, 20, 20);
     }catch(e){ console.error("Gagal menambahkan logo ke PDF:", e); }
   }
   doc.setFont("times","bold"); doc.setFontSize(15);
@@ -766,19 +781,24 @@ function isiFormSetting(){
 
 /* ================= ITEM PENDAPATAN / POTONGAN (MASTER) ================= */
 function renderItemMaster(){
-  itemPendapatan = Object.values(itemPendapatanObj).map(x=>x.nama).sort((a,b)=>a.localeCompare(b));
-  itemPotongan = Object.values(itemPotonganObj).map(x=>x.nama).sort((a,b)=>a.localeCompare(b));
+  const toList = obj => Object.values(obj)
+    .map(x=>({ nama:x.nama, nominal:x.nominal||0, fix:!!x.fix }))
+    .sort((a,b)=>a.nama.localeCompare(b.nama));
+  itemPendapatan = toList(itemPendapatanObj);
+  itemPotongan = toList(itemPotonganObj);
 
   const renderTable = (obj, tbodyId, emptyId, target) => {
     const tbody=$(tbodyId); tbody.innerHTML="";
     const ids=Object.keys(obj).sort((a,b)=>(obj[a].nama||"").localeCompare(obj[b].nama||""));
     $(emptyId).style.display = ids.length ? "none":"block";
     ids.forEach(id=>{
+      const it=obj[id];
+      const ket = it.nominal ? `${fmtRp(it.nominal)}${it.fix?" (fix)":""}` : "—";
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${obj[id].nama}</td>
+      tr.innerHTML=`<td>${it.nama}<div style="font-size:11px;color:var(--ink-soft)">${ket}</div></td>
         <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-act="hapus" style="color:var(--red)">Hapus</button></td>`;
       tr.querySelector('[data-act=hapus]').addEventListener("click",()=>{
-        konfirmasiHapus(`Hapus item "${obj[id].nama}"?`, ()=>db.ref(`${ROOT}/${target}/${id}`).remove().then(()=>toast("Item dihapus")));
+        konfirmasiHapus(`Hapus item "${it.nama}"?`, ()=>db.ref(`${ROOT}/${target}/${id}`).remove().then(()=>toast("Item dihapus")));
       });
       tbody.appendChild(tr);
     });
@@ -789,17 +809,20 @@ function renderItemMaster(){
 function bukaModalItem(target){
   itemModalTarget=target;
   $("modalItemTitle").textContent = target==="itemPendapatan" ? "Tambah Item Pendapatan" : "Tambah Item Potongan";
-  $("itemNama").value="";
+  $("itemNama").value=""; $("itemNominal").value=""; $("itemFix").checked=false;
   $("modalItem").classList.add("show");
 }
 $("btnTambahItemPendapatan").addEventListener("click",()=>bukaModalItem("itemPendapatan"));
 $("btnTambahItemPotongan").addEventListener("click",()=>bukaModalItem("itemPotongan"));
 $("itemBatal").addEventListener("click",()=>$("modalItem").classList.remove("show"));
+$("itemNominal").addEventListener("input",()=>{ const v=parseRp($("itemNominal").value); $("itemNominal").value=v?v.toLocaleString("id-ID"):""; });
 $("itemSimpan").addEventListener("click", async ()=>{
   const nama=$("itemNama").value.trim();
+  const nominal=parseRp($("itemNominal").value);
+  const fix=$("itemFix").checked;
   if(!nama){ toast("Nama item wajib diisi"); return; }
   try{
-    await db.ref(`${ROOT}/${itemModalTarget}`).push({ nama });
+    await db.ref(`${ROOT}/${itemModalTarget}`).push({ nama, nominal, fix });
     $("modalItem").classList.remove("show");
     toast("Item disimpan");
   }catch(e){ toast("Gagal: "+e.message); }
