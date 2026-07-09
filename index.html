@@ -302,10 +302,13 @@ main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
 /* ================= FIREBASE ================= */
 // GANTI dengan config Firebase milikmu (boleh pakai project yang sama dengan app lain)
 const firebaseConfig = {
-  apiKey: "GANTI_API_KEY",
-  authDomain: "GANTI.firebaseapp.com",
-  databaseURL: "https://GANTI-default-rtdb.firebaseio.com",
-  projectId: "GANTI",
+  apiKey: "AIzaSyBLy1n3c_6kr4TL46haupLhfoPeYPzBNFg",
+  authDomain: "slipj-gaji-al-farisy.firebaseapp.com",
+  databaseURL: "https://slipj-gaji-al-farisy-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "slipj-gaji-al-farisy",
+  storageBucket: "slipj-gaji-al-farisy.firebasestorage.app",
+  messagingSenderId: "544326604644",
+  appId: "1:544326604644:web:543025385c14d3bcb84c71"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -314,7 +317,8 @@ const ROOT = "slipgaji"; // node terpisah, aman digabung dengan data app lain
 
 // GANTI dengan daftar email Google yang boleh mengakses aplikasi ini
 const ALLOWED_EMAILS = [
-  "GANTI_EMAIL@gmail.com"
+  "ridwanalfarisi8372@gmail.com",
+  "editor.mpi.semangat@gmail.com"
 ];
 
 /* ================= STATE ================= */
