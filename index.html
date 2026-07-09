@@ -136,9 +136,12 @@ main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
   main{padding:12px 10px 50px}
   .card{padding:14px}
 }
+
+/* ===== Pre-auth blur ===== */
+body.pre-auth nav, body.pre-auth main{filter:blur(8px);pointer-events:none;user-select:none}
 </style>
 </head>
-<body>
+<body class="pre-auth">
 
 <header>
   <div class="brand">Slip<span>Gaji</span></div>
@@ -690,6 +693,7 @@ $("btnLogout").addEventListener("click", ()=>auth.signOut());
 auth.onAuthStateChanged(user=>{
   if(user && ALLOWED_EMAILS.includes(user.email)){
     $("gateLogin").classList.remove("show");
+    document.body.classList.remove("pre-auth");
     $("btnLogin").style.display="none";
     $("btnLogout").style.display="inline-block";
     $("userEmail").textContent=user.email;
@@ -701,6 +705,7 @@ auth.onAuthStateChanged(user=>{
       auth.signOut();
     }
     $("gateLogin").classList.add("show");
+    document.body.classList.add("pre-auth");
     $("btnLogin").style.display="inline-block";
     $("btnLogout").style.display="none";
   }
