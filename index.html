@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
@@ -142,7 +143,19 @@ main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
 <header>
   <div class="brand">Slip<span>Gaji</span></div>
   <div class="company" id="hdrCompany">—</div>
+  <button class="btn btn-ghost btn-sm" id="btnLogin" style="width:auto">Masuk dengan Google</button>
+  <button class="btn btn-ghost btn-sm" id="btnLogout" style="width:auto;display:none">Keluar (<span id="userEmail"></span>)</button>
 </header>
+
+<!-- Overlay: wajib login -->
+<div class="modal-bg show" id="gateLogin" style="z-index:80">
+  <div class="modal" style="text-align:center">
+    <h3>Masuk untuk melanjutkan</h3>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:16px">Silakan masuk dengan akun Google yang diizinkan untuk mengakses aplikasi Slip Gaji.</p>
+    <button class="btn btn-primary" id="btnLoginGate">Masuk dengan Google</button>
+    <p id="gateError" style="font-size:12.5px;color:var(--red);margin-top:12px;display:none"></p>
+  </div>
+</div>
 
 <nav>
   <button class="active" data-tab="buat">Buat Slip</button>
@@ -296,7 +309,13 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
 const ROOT = "slipgaji"; // node terpisah, aman digabung dengan data app lain
+
+// GANTI dengan daftar email Google yang boleh mengakses aplikasi ini
+const ALLOWED_EMAILS = [
+  "GANTI_EMAIL@gmail.com"
+];
 
 /* ================= STATE ================= */
 let settings = { nama:"", alamat:"", kota:"", ttdNama:"", ttdJabatan:"" };
@@ -649,16 +668,51 @@ $("selKaryawan").addEventListener("change",()=>{
 $("selBulan").addEventListener("change", renderPreview);
 $("inpTahun").addEventListener("input", renderPreview);
 
+/* ================= AUTH (Google Sign-In) ================= */
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+let dataStarted = false;
+
+function doLogin(){
+  $("gateError").style.display="none";
+  auth.signInWithPopup(googleProvider).catch(e=>{
+    $("gateError").textContent="Gagal masuk: "+e.message;
+    $("gateError").style.display="block";
+  });
+}
+$("btnLogin").addEventListener("click", doLogin);
+$("btnLoginGate").addEventListener("click", doLogin);
+$("btnLogout").addEventListener("click", ()=>auth.signOut());
+
+auth.onAuthStateChanged(user=>{
+  if(user && ALLOWED_EMAILS.includes(user.email)){
+    $("gateLogin").classList.remove("show");
+    $("btnLogin").style.display="none";
+    $("btnLogout").style.display="inline-block";
+    $("userEmail").textContent=user.email;
+    if(!dataStarted){ dataStarted=true; startData(); }
+  } else {
+    if(user && !ALLOWED_EMAILS.includes(user.email)){
+      $("gateError").textContent="Email "+user.email+" tidak diizinkan mengakses aplikasi ini.";
+      $("gateError").style.display="block";
+      auth.signOut();
+    }
+    $("gateLogin").classList.add("show");
+    $("btnLogin").style.display="inline-block";
+    $("btnLogout").style.display="none";
+  }
+});
+
 /* ================= INIT ================= */
+function startData(){
+  db.ref(ROOT+"/settings").on("value",s=>{ settings=s.val()||settings; isiFormSetting(); renderPreview(); });
+  db.ref(ROOT+"/karyawan").on("value",s=>{ karyawan=s.val()||{}; renderKaryawan(); renderPreview(); });
+  db.ref(ROOT+"/slips").on("value",s=>{ slips=s.val()||{}; renderRiwayat(); renderPreview(); });
+}
 (function init(){
   const now=new Date();
   $("selBulan").innerHTML=BULAN.map((b,i)=>`<option value="${i}">${b}</option>`).join("");
   $("selBulan").value=now.getMonth();
   $("inpTahun").value=now.getFullYear();
-
-  db.ref(ROOT+"/settings").on("value",s=>{ settings=s.val()||settings; isiFormSetting(); renderPreview(); });
-  db.ref(ROOT+"/karyawan").on("value",s=>{ karyawan=s.val()||{}; renderKaryawan(); renderPreview(); });
-  db.ref(ROOT+"/slips").on("value",s=>{ slips=s.val()||{}; renderRiwayat(); renderPreview(); });
 
   renderPreview();
 })();
